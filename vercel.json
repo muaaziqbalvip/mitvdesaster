@@ -1,6 +1,7 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api/get.py" }
+    { "source": "/get.php", "destination": "/api/index" },
+    { "source": "/admin.html", "destination": "/public/admin.html" }
   ]
 }
 
