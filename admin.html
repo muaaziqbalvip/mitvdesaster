@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MITV Admin Panel</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#0b0f14;
+    --panel:#121820;
+    --panel-2:#161e28;
+    --border:#232d3a;
+    --text:#e7edf5;
+    --muted:#8a9bb0;
+    --accent:#2dd4bf;
+    --accent-2:#22c1a6;
+    --pro:#f0b429;
+    --danger:#f2545b;
+    --radius:10px;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    min-height:100vh;
+  }
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 28px;background:var(--panel);border-bottom:1px solid var(--border);
+    position:sticky;top:0;z-index:10;
+  }
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;letter-spacing:.3px;}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);}
+  .layout{display:flex;min-height:calc(100vh - 60px);}
+  nav{
+    width:220px;background:var(--panel);border-right:1px solid var(--border);
+    padding:20px 12px;flex-shrink:0;
+  }
+  nav button{
+    display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+    background:transparent;border:none;color:var(--muted);padding:11px 14px;
+    border-radius:var(--radius);cursor:pointer;font-size:14px;margin-bottom:4px;
+    transition:.15s;
+  }
+  nav button:hover{background:var(--panel-2);color:var(--text);}
+  nav button.active{background:linear-gradient(135deg,rgba(45,212,191,.15),rgba(45,212,191,.05));color:var(--accent);font-weight:600;}
+  main{flex:1;padding:28px;max-width:1200px;}
+  .card{
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    padding:22px;margin-bottom:20px;
+  }
+  .card h2{margin:0 0 4px;font-size:17px;}
+  .card p.hint{color:var(--muted);font-size:13px;margin:0 0 16px;}
+  .grid-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:22px;}
+  .stat{
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    padding:16px 18px;
+  }
+  .stat .num{font-size:26px;font-weight:700;color:var(--accent);}
+  .stat .label{font-size:12px;color:var(--muted);margin-top:2px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{
+    text-align:left;color:var(--muted);font-weight:600;padding:10px 12px;
+    border-bottom:1px solid var(--border);font-size:12px;text-transform:uppercase;letter-spacing:.4px;
+  }
+  td{padding:11px 12px;border-bottom:1px solid var(--border);}
+  tr:hover td{background:var(--panel-2);}
+  .badge{
+    padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;display:inline-block;
+  }
+  .badge.pro{background:rgba(240,180,41,.15);color:var(--pro);}
+  .badge.free{background:rgba(138,155,176,.15);color:var(--muted);}
+  .badge.active{background:rgba(45,212,191,.15);color:var(--accent);}
+  .badge.expired{background:rgba(242,84,91,.15);color:var(--danger);}
+  input,select,textarea{
+    background:var(--panel-2);border:1px solid var(--border);color:var(--text);
+    padding:10px 12px;border-radius:8px;font-size:13px;width:100%;
+  }
+  textarea{min-height:120px;font-family:monospace;resize:vertical;}
+  label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px;margin-top:14px;}
+  label:first-child{margin-top:0;}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .btn{
+    background:var(--accent);color:#04201c;border:none;padding:11px 18px;
+    border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;
+    transition:.15s;
+  }
+  .btn:hover{background:var(--accent-2);}
+  .btn.secondary{background:var(--panel-2);color:var(--text);border:1px solid var(--border);}
+  .btn.danger{background:rgba(242,84,91,.15);color:var(--danger);border:1px solid rgba(242,84,91,.3);}
+  .btn-row{display:flex;gap:10px;margin-top:18px;}
+  .tab-content{display:none;}
+  .tab-content.active{display:block;}
+  .empty{text-align:center;padding:40px 20px;color:var(--muted);}
+  .login-screen{
+    display:flex;align-items:center;justify-content:center;min-height:100vh;
+  }
+  .login-box{
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:36px;width:340px;
+  }
+  .login-box h1{font-size:20px;margin:0 0 4px;}
+  .login-box p{color:var(--muted);font-size:13px;margin:0 0 22px;}
+  .m3u-preview{
+    background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    padding:12px;max-height:220px;overflow-y:auto;font-size:12px;margin-top:12px;
+  }
+  .m3u-preview .item{padding:6px 4px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;}
+  .m3u-preview .item:last-child{border-bottom:none;}
+  .toast{
+    position:fixed;bottom:24px;right:24px;background:var(--panel);border:1px solid var(--accent);
+    color:var(--text);padding:14px 18px;border-radius:8px;font-size:13px;
+    box-shadow:0 8px 24px rgba(0,0,0,.4);display:none;z-index:100;
+  }
+  .icon-btn{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px 8px;}
+  .icon-btn:hover{color:var(--text);}
+  .tier-toggle{display:flex;gap:8px;}
+  .tier-toggle button{flex:1;padding:9px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--muted);cursor:pointer;font-size:12px;font-weight:600;}
+  .tier-toggle button.selected{border-color:var(--accent);color:var(--accent);background:rgba(45,212,191,.1);}
+</style>
+</head>
+<body>
+
+<div id="loginScreen" class="login-screen">
+  <div class="login-box">
+    <h1>MITV Admin</h1>
+    <p>Sign in to manage your panel</p>
+    <label>Admin Email</label>
+    <input type="email" id="loginEmail" placeholder="admin@yourdomain.com">
+    <label>Password</label>
+    <input type="password" id="loginPassword" placeholder="••••••••">
+    <div class="btn-row">
+      <button class="btn" style="width:100%" onclick="doLogin()">Sign In</button>
+    </div>
+    <p id="loginError" style="color:var(--danger);font-size:12px;margin-top:12px;"></p>
+  </div>
+</div>
+
+<div id="appScreen" style="display:none;">
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span> MITV Admin Panel</div>
+    <button class="btn secondary" onclick="doLogout()">Sign Out</button>
+  </div>
+
+  <div class="layout">
+    <nav>
+      <button class="nav-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">📊 Dashboard</button>
+      <button class="nav-btn" data-tab="users" onclick="switchTab('users')">👥 Users</button>
+      <button class="nav-btn" data-tab="channels" onclick="switchTab('channels')">📺 Channels</button>
+      <button class="nav-btn" data-tab="import" onclick="switchTab('import')">📥 Import M3U</button>
+      <button class="nav-btn" data-tab="sessions" onclick="switchTab('sessions')">🕓 Activity Log</button>
+    </nav>
+
+    <main>
+
+      <!-- DASHBOARD -->
+      <div class="tab-content active" id="tab-dashboard">
+        <div class="grid-stats">
+          <div class="stat"><div class="num" id="statTotalUsers">-</div><div class="label">Total Users</div></div>
+          <div class="stat"><div class="num" id="statActiveUsers">-</div><div class="label">Active Subscriptions</div></div>
+          <div class="stat"><div class="num" id="statProUsers">-</div><div class="label">Pro Users</div></div>
+          <div class="stat"><div class="num" id="statChannels">-</div><div class="label">Total Channels</div></div>
+        </div>
+        <div class="card">
+          <h2>Recent Activity</h2>
+          <p class="hint">Latest playlist requests from your users</p>
+          <table>
+            <thead><tr><th>User</th><th>IP</th><th>Device</th><th>Status</th><th>Time</th></tr></thead>
+            <tbody id="recentActivityBody"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- USERS -->
+      <div class="tab-content" id="tab-users">
+        <div class="card">
+          <h2>Add / Edit User</h2>
+          <p class="hint">Create a subscriber account. Password is hashed before saving.</p>
+          <input type="hidden" id="userEditId">
+          <div class="row">
+            <div>
+              <label>Username</label>
+              <input type="text" id="userUsername" placeholder="customer001">
+            </div>
+            <div>
+              <label>Password</label>
+              <input type="text" id="userPassword" placeholder="Leave blank to keep unchanged">
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Subscription Days</label>
+              <input type="number" id="userDays" value="30">
+            </div>
+            <div>
+              <label>Max Devices</label>
+              <input type="number" id="userMaxDevices" value="1">
+            </div>
+          </div>
+          <label>Tier</label>
+          <div class="tier-toggle">
+            <button type="button" id="tierFreeBtn" class="selected" onclick="setUserTier('free')">Free</button>
+            <button type="button" id="tierProBtn" onclick="setUserTier('pro')">Pro</button>
+          </div>
+          <div class="btn-row">
+            <button class="btn" onclick="saveUser()">Save User</button>
+            <button class="btn secondary" onclick="resetUserForm()">Clear</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>All Users</h2>
+          <table>
+            <thead><tr><th>Username</th><th>Tier</th><th>Status</th><th>Expiry</th><th>Devices</th><th>Last IP</th><th></th></tr></thead>
+            <tbody id="usersTableBody"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CHANNELS -->
+      <div class="tab-content" id="tab-channels">
+        <div class="card">
+          <h2>Add / Edit Channel</h2>
+          <input type="hidden" id="chEditId">
+          <div class="row">
+            <div>
+              <label>Channel Name</label>
+              <input type="text" id="chName" placeholder="PTV Sports">
+            </div>
+            <div>
+              <label>Category</label>
+              <input type="text" id="chCategory" placeholder="Sports">
+            </div>
+          </div>
+          <label>Stream URL</label>
+          <input type="text" id="chStreamUrl" placeholder="https://.../stream.m3u8">
+          <label>Logo URL</label>
+          <input type="text" id="chLogoUrl" placeholder="https://.../logo.png">
+          <label>Tier</label>
+          <div class="tier-toggle">
+            <button type="button" id="chTierFreeBtn" class="selected" onclick="setChannelTier('free')">Free</button>
+            <button type="button" id="chTierProBtn" onclick="setChannelTier('pro')">Pro</button>
+          </div>
+          <div class="btn-row">
+            <button class="btn" onclick="saveChannel()">Save Channel</button>
+            <button class="btn secondary" onclick="resetChannelForm()">Clear</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>All Channels</h2>
+          <table>
+            <thead><tr><th>Name</th><th>Category</th><th>Tier</th><th>Status</th><th></th></tr></thead>
+            <tbody id="channelsTableBody"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- IMPORT M3U -->
+      <div class="tab-content" id="tab-import">
+        <div class="card">
+          <h2>Import Channels from M3U Link</h2>
+          <p class="hint">Paste an M3U/M3U8 playlist URL you have the rights to use. We'll fetch and parse it, then you choose which channels to add and at what tier.</p>
+          <label>M3U Playlist URL</label>
+          <input type="text" id="m3uUrl" placeholder="https://.../playlist.m3u8">
+          <div class="btn-row">
+            <button class="btn" onclick="fetchM3U()">Fetch & Parse</button>
+          </div>
+          <div id="m3uPreviewWrap" style="display:none;">
+            <label style="margin-top:20px;">Preview (<span id="m3uCount">0</span> channels found)</label>
+            <div class="m3u-preview" id="m3uPreview"></div>
+            <label>Default tier for imported channels</label>
+            <div class="tier-toggle">
+              <button type="button" id="importTierFreeBtn" class="selected" onclick="setImportTier('free')">Free</button>
+              <button type="button" id="importTierProBtn" onclick="setImportTier('pro')">Pro</button>
+            </div>
+            <div class="btn-row">
+              <button class="btn" onclick="importAllChannels()">Import All to Firestore</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SESSIONS -->
+      <div class="tab-content" id="tab-sessions">
+        <div class="card">
+          <h2>Full Activity Log</h2>
+          <p class="hint">Every playlist request: who, from where, on which device, and the result.</p>
+          <table>
+            <thead><tr><th>User</th><th>IP</th><th>Device ID</th><th>Result</th><th>Time</th></tr></thead>
+            <tbody id="sessionsTableBody"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// CONFIG — fill in your Firebase project config below
+// ============================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyBbnU8DkthpYQMHOLLyj6M0cc05qXfjMcw",
+  authDomain: "ramadan-2385b.firebaseapp.com",
+  databaseURL: "https://ramadan-2385b-default-rtdb.firebaseio.com",
+  projectId: "ramadan-2385b",
+  storageBucket: "ramadan-2385b.firebasestorage.app",
+  messagingSenderId: "882828936310",
+  appId: "1:882828936310:web:7f97b921031fe130fe4b57"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// NOTE: This admin panel uses Firebase Auth (email/password) for YOU, the
+// admin, to sign in. Set up an admin user under Firebase Console -> Authentication.
+// Firestore rules should allow read/write on users/channels/sessions ONLY
+// when request.auth != null (i.e. only signed-in admins) — see firestore.rules.
+
+let currentTierSelection = 'free';
+let currentChTierSelection = 'free';
+let currentImportTier = 'free';
+let parsedM3UChannels = [];
+
+// ---------- AUTH ----------
+function doLogin(){
+  const email = document.getElementById('loginEmail').value;
+  const pass = document.getElementById('loginPassword').value;
+  auth.signInWithEmailAndPassword(email, pass)
+    .catch(err => {
+      document.getElementById('loginError').innerText = err.message;
+    });
+}
+function doLogout(){ auth.signOut(); }
+
+auth.onAuthStateChanged(user => {
+  if(user){
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appScreen').style.display = 'block';
+    loadDashboard();
+    loadUsers();
+    loadChannels();
+    loadSessions();
+  } else {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('appScreen').style.display = 'none';
+  }
+});
+
+// ---------- NAV ----------
+function switchTab(tab){
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.nav-btn[data-tab="${tab}"]`).classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.innerText = msg;
+  t.style.display = 'block';
+  setTimeout(()=> t.style.display='none', 2500);
+}
+
+// ---------- DASHBOARD ----------
+async function loadDashboard(){
+  const usersSnap = await db.collection('users').get();
+  let total = 0, active = 0, pro = 0;
+  const now = new Date();
+  usersSnap.forEach(doc => {
+    const u = doc.data();
+    total++;
+    if(u.active && u.expiry && u.expiry.toDate() > now) active++;
+    if(u.tier === 'pro') pro++;
+  });
+  document.getElementById('statTotalUsers').innerText = total;
+  document.getElementById('statActiveUsers').innerText = active;
+  document.getElementById('statProUsers').innerText = pro;
+
+  const chSnap = await db.collection('channels').get();
+  document.getElementById('statChannels').innerText = chSnap.size;
+
+  const sessSnap = await db.collection('sessions').orderBy('timestamp','desc').limit(8).get();
+  const body = document.getElementById('recentActivityBody');
+  body.innerHTML = '';
+  if(sessSnap.empty){
+    body.innerHTML = '<tr><td colspan="5" class="empty">No activity yet</td></tr>';
+  }
+  sessSnap.forEach(doc => {
+    const s = doc.data();
+    const time = s.timestamp ? s.timestamp.toDate().toLocaleString() : '-';
+    const statusClass = s.note === 'PLAYLIST_SERVED' ? 'active' : 'expired';
+    body.innerHTML += `<tr>
+      <td>${s.username}</td><td>${s.ip}</td><td>${s.device_id}</td>
+      <td><span class="badge ${statusClass}">${s.note}</span></td><td>${time}</td>
+    </tr>`;
+  });
+}
+
+// ---------- USERS ----------
+function setUserTier(tier){
+  currentTierSelection = tier;
+  document.getElementById('tierFreeBtn').classList.toggle('selected', tier==='free');
+  document.getElementById('tierProBtn').classList.toggle('selected', tier==='pro');
+}
+
+function resetUserForm(){
+  document.getElementById('userEditId').value = '';
+  document.getElementById('userUsername').value = '';
+  document.getElementById('userPassword').value = '';
+  document.getElementById('userDays').value = 30;
+  document.getElementById('userMaxDevices').value = 1;
+  setUserTier('free');
+}
+
+async function saveUser(){
+  const username = document.getElementById('userUsername').value.trim();
+  const password = document.getElementById('userPassword').value.trim();
+  const days = parseInt(document.getElementById('userDays').value || '30');
+  const maxDevices = parseInt(document.getElementById('userMaxDevices').value || '1');
+
+  if(!username){ showToast('Username required'); return; }
+
+  // NOTE: password hashing must happen server-side (bcrypt). This panel calls
+  // your backend's admin endpoint to actually hash + save — see the
+  // /api/admin/save-user function you deploy alongside get.py.
+  // Below is a direct Firestore write for fields that don't need hashing;
+  // swap this for a fetch() to your secure backend endpoint in production.
+
+  const expiry = new Date();
+  expiry.setDate(expiry.getDate() + days);
+
+  const payload = {
+    active: true,
+    expiry: firebase.firestore.Timestamp.fromDate(expiry),
+    max_devices: maxDevices,
+    tier: currentTierSelection,
+  };
+
+  if(password){
+    // Send to backend to hash — placeholder call, implement /api/admin/hash-password
+    // For now storing a flag so you remember to run manage_users.py for hashing.
+    payload._password_needs_hash = password;
+  }
+
+  await db.collection('users').doc(username).set(payload, {merge: true});
+  showToast(`User "${username}" saved`);
+  resetUserForm();
+  loadUsers();
+  loadDashboard();
+}
+
+async function loadUsers(){
+  const snap = await db.collection('users').get();
+  const body = document.getElementById('usersTableBody');
+  body.innerHTML = '';
+  if(snap.empty){
+    body.innerHTML = '<tr><td colspan="7" class="empty">No users yet</td></tr>';
+    return;
+  }
+  const now = new Date();
+  snap.forEach(doc => {
+    const u = doc.data();
+    const expiryDate = u.expiry ? u.expiry.toDate() : null;
+    const isActive = u.active && expiryDate && expiryDate > now;
+    const devices = (u.registered_devices || []);
+    const lastIp = devices.length ? devices[devices.length-1].last_ip : '-';
+    body.innerHTML += `<tr>
+      <td>${doc.id}</td>
+      <td><span class="badge ${u.tier==='pro'?'pro':'free'}">${u.tier||'free'}</span></td>
+      <td><span class="badge ${isActive?'active':'expired'}">${isActive?'Active':'Expired'}</span></td>
+      <td>${expiryDate ? expiryDate.toLocaleDateString() : '-'}</td>
+      <td>${devices.length}/${u.max_devices||1}</td>
+      <td>${lastIp}</td>
+      <td>
+        <button class="icon-btn" onclick="editUser('${doc.id}')">✏️</button>
+        <button class="icon-btn" onclick="deleteUser('${doc.id}')">🗑️</button>
+      </td>
+    </tr>`;
+  });
+}
+
+async function editUser(username){
+  const doc = await db.collection('users').doc(username).get();
+  const u = doc.data();
+  document.getElementById('userEditId').value = username;
+  document.getElementById('userUsername').value = username;
+  document.getElementById('userPassword').value = '';
+  document.getElementById('userMaxDevices').value = u.max_devices || 1;
+  setUserTier(u.tier || 'free');
+  switchTab('users');
+}
+
+async function deleteUser(username){
+  if(!confirm(`Delete user "${username}"?`)) return;
+  await db.collection('users').doc(username).delete();
+  showToast('User deleted');
+  loadUsers();
+  loadDashboard();
+}
+
+// ---------- CHANNELS ----------
+function setChannelTier(tier){
+  currentChTierSelection = tier;
+  document.getElementById('chTierFreeBtn').classList.toggle('selected', tier==='free');
+  document.getElementById('chTierProBtn').classList.toggle('selected', tier==='pro');
+}
+
+function resetChannelForm(){
+  document.getElementById('chEditId').value = '';
+  document.getElementById('chName').value = '';
+  document.getElementById('chCategory').value = '';
+  document.getElementById('chStreamUrl').value = '';
+  document.getElementById('chLogoUrl').value = '';
+  setChannelTier('free');
+}
+
+async function saveChannel(){
+  const editId = document.getElementById('chEditId').value;
+  const name = document.getElementById('chName').value.trim();
+  const category = document.getElementById('chCategory').value.trim() || 'General';
+  const streamUrl = document.getElementById('chStreamUrl').value.trim();
+  const logoUrl = document.getElementById('chLogoUrl').value.trim();
+
+  if(!name || !streamUrl){ showToast('Name and Stream URL required'); return; }
+
+  const id = editId || name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
+  await db.collection('channels').doc(id).set({
+    name, category, stream_url: streamUrl, logo_url: logoUrl,
+    tier: currentChTierSelection, active: true,
+  }, {merge: true});
+
+  showToast(`Channel "${name}" saved`);
+  resetChannelForm();
+  loadChannels();
+  loadDashboard();
+}
+
+async function loadChannels(){
+  const snap = await db.collection('channels').get();
+  const body = document.getElementById('channelsTableBody');
+  body.innerHTML = '';
+  if(snap.empty){
+    body.innerHTML = '<tr><td colspan="5" class="empty">No channels yet</td></tr>';
+    return;
+  }
+  snap.forEach(doc => {
+    const c = doc.data();
+    body.innerHTML += `<tr>
+      <td>${c.name}</td>
+      <td>${c.category}</td>
+      <td><span class="badge ${c.tier==='pro'?'pro':'free'}">${c.tier||'free'}</span></td>
+      <td><span class="badge ${c.active?'active':'expired'}">${c.active?'Active':'Disabled'}</span></td>
+      <td>
+        <button class="icon-btn" onclick='editChannel("${doc.id}")'>✏️</button>
+        <button class="icon-btn" onclick='deleteChannel("${doc.id}")'>🗑️</button>
+      </td>
+    </tr>`;
+  });
+}
+
+async function editChannel(id){
+  const doc = await db.collection('channels').doc(id).get();
+  const c = doc.data();
+  document.getElementById('chEditId').value = id;
+  document.getElementById('chName').value = c.name;
+  document.getElementById('chCategory').value = c.category;
+  document.getElementById('chStreamUrl').value = c.stream_url;
+  document.getElementById('chLogoUrl').value = c.logo_url || '';
+  setChannelTier(c.tier || 'free');
+  switchTab('channels');
+}
+
+async function deleteChannel(id){
+  if(!confirm('Delete this channel?')) return;
+  await db.collection('channels').doc(id).delete();
+  showToast('Channel deleted');
+  loadChannels();
+  loadDashboard();
+}
+
+// ---------- IMPORT M3U ----------
+function setImportTier(tier){
+  currentImportTier = tier;
+  document.getElementById('importTierFreeBtn').classList.toggle('selected', tier==='free');
+  document.getElementById('importTierProBtn').classList.toggle('selected', tier==='pro');
+}
+
+async function fetchM3U(){
+  const url = document.getElementById('m3uUrl').value.trim();
+  if(!url){ showToast('Enter an M3U URL'); return; }
+
+  try{
+    const res = await fetch(url);
+    const text = await res.text();
+    parsedM3UChannels = parseM3U(text);
+
+    const preview = document.getElementById('m3uPreview');
+    preview.innerHTML = '';
+    parsedM3UChannels.forEach((ch, i) => {
+      preview.innerHTML += `<div class="item"><span>${ch.name}</span><span style="color:var(--muted)">${ch.category}</span></div>`;
+    });
+    document.getElementById('m3uCount').innerText = parsedM3UChannels.length;
+    document.getElementById('m3uPreviewWrap').style.display = 'block';
+    showToast(`Found ${parsedM3UChannels.length} channels`);
+  } catch(err){
+    showToast('Failed to fetch M3U: ' + err.message);
+  }
+}
+
+function parseM3U(content){
+  const channels = [];
+  const lines = content.split('\n');
+  for(let i=0; i<lines.length; i++){
+    const line = lines[i].trim();
+    if(line.startsWith('#EXTINF')){
+      const nameMatch = line.split(',').pop();
+      const logoMatch = line.match(/tvg-logo="([^"]*)"/);
+      const groupMatch = line.match(/group-title="([^"]*)"/);
+      const url = (lines[i+1]||'').trim();
+      if(url && !url.startsWith('#')){
+        channels.push({
+          name: nameMatch || 'Unknown',
+          logo: logoMatch ? logoMatch[1] : '',
+          category: groupMatch ? groupMatch[1] : 'General',
+          stream_url: url,
+        });
+      }
+    }
+  }
+  return channels;
+}
+
+async function importAllChannels(){
+  if(!parsedM3UChannels.length){ showToast('Nothing to import'); return; }
+  const batch = db.batch();
+  parsedM3UChannels.forEach(ch => {
+    const id = ch.name.toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,60) + '-' + Math.random().toString(36).slice(2,7);
+    const ref = db.collection('channels').doc(id);
+    batch.set(ref, {
+      name: ch.name, category: ch.category, stream_url: ch.stream_url,
+      logo_url: ch.logo, tier: currentImportTier, active: true,
+    });
+  });
+  await batch.commit();
+  showToast(`Imported ${parsedM3UChannels.length} channels`);
+  parsedM3UChannels = [];
+  document.getElementById('m3uPreviewWrap').style.display = 'none';
+  document.getElementById('m3uUrl').value = '';
+  loadChannels();
+  loadDashboard();
+}
+
+// ---------- SESSIONS ----------
+async function loadSessions(){
+  const snap = await db.collection('sessions').orderBy('timestamp','desc').limit(100).get();
+  const body = document.getElementById('sessionsTableBody');
+  body.innerHTML = '';
+  if(snap.empty){
+    body.innerHTML = '<tr><td colspan="5" class="empty">No sessions logged yet</td></tr>';
+    return;
+  }
+  snap.forEach(doc => {
+    const s = doc.data();
+    const time = s.timestamp ? s.timestamp.toDate().toLocaleString() : '-';
+    const statusClass = s.note === 'PLAYLIST_SERVED' ? 'active' : 'expired';
+    body.innerHTML += `<tr>
+      <td>${s.username}</td><td>${s.ip}</td><td>${s.device_id}</td>
+      <td><span class="badge ${statusClass}">${s.note}</span></td><td>${time}</td>
+    </tr>`;
+  });
+}
+</script>
+</body>
+</html>
